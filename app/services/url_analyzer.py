@@ -1,5 +1,3 @@
-# Service d'analyse d'URL
-
 from app.services.text_analyzer import TextAnalyzer
 from app.services.url_security_checker import URLSecurityChecker
 from typing import Dict
@@ -33,15 +31,12 @@ class URLAnalyzer:
             Dictionnaire avec les résultats de l'analyse
         """
         try:
-            # Vérification de l'URL
             parsed_url = urlparse(url)
             if not parsed_url.scheme or not parsed_url.netloc:
                 raise ValueError("URL invalide")
             
-            # Extraction du contenu
             content_data = self._extract_content(url)
             
-            # Analyse du texte extrait
             if content_data['text']:
                 text_analysis = self.text_analyzer.analyze(content_data['text'])
             else:
@@ -56,10 +51,7 @@ class URLAnalyzer:
                     }
                 }
             
-            # Analyse de la source
             source_analysis = self._analyze_source(url, parsed_url)
-            
-            # Vérification de sécurité
             security_check = self.security_checker.check_security(url)
             
             return {
@@ -88,27 +80,19 @@ class URLAnalyzer:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Extraction du titre
             title = soup.find('title')
             title_text = title.get_text() if title else ""
             
-            # Extraction du contenu principal (articles, paragraphes)
-            # Suppression des scripts et styles
             for script in soup(["script", "style", "nav", "footer", "header"]):
                 script.decompose()
             
-            # Extraction du texte principal
             paragraphs = soup.find_all(['p', 'article', 'div'])
             text_content = " ".join([p.get_text() for p in paragraphs if p.get_text().strip()])
-            
-            # Nettoyage du texte
             text_content = " ".join(text_content.split())
             
-            # Limitation à 5000 caractères pour l'analyse
             if len(text_content) > 5000:
                 text_content = text_content[:5000] + "..."
             
-            # Extraction des métadonnées
             meta_description = soup.find('meta', attrs={'name': 'description'})
             description = meta_description.get('content', '') if meta_description else ""
             
@@ -134,7 +118,6 @@ class URLAnalyzer:
     def _analyze_source(self, url: str, parsed_url) -> Dict:
         domain = parsed_url.netloc.lower()
         
-        # Liste de domaines connus (exemples)
         trusted_domains = [
             'bbc.com', 'reuters.com', 'ap.org', 'theguardian.com',
             'lemonde.fr', 'france24.com', 'franceinfo.fr'
@@ -147,7 +130,6 @@ class URLAnalyzer:
         is_trusted = any(trusted in domain for trusted in trusted_domains)
         is_suspicious = any(susp in domain for susp in suspicious_domains)
         
-        # Analyse du domaine
         domain_parts = domain.split('.')
         if len(domain_parts) > 3:
             is_suspicious = True
@@ -172,7 +154,6 @@ class URLAnalyzer:
     def _generate_url_recommendation(self, text_analysis: Dict, source_analysis: Dict, security_check: Dict = None) -> str:
         recommendations = []
         
-        # Recommandations de sécurité
         if security_check:
             if security_check.get('is_fraudulent'):
                 recommendations.append("🔴 SITE FRAUDULEUX ou NON SÉCURISÉ détecté. Ne visitez pas ce site.")
@@ -181,14 +162,12 @@ class URLAnalyzer:
             elif not security_check.get('ssl', {}).get('has_ssl'):
                 recommendations.append("⚠️ Site sans HTTPS. Non sécurisé.")
         
-        # Recommandations de source
         if source_analysis.get('is_suspicious'):
             recommendations.append("⚠️ Le domaine de cette source peut être suspect")
         
         if not source_analysis.get('is_trusted'):
             recommendations.append("ℹ️ Cette source n'est pas dans notre liste de sources vérifiées")
         
-        # Recommandations de contenu
         if text_analysis.get('detection', {}).get('is_fake'):
             recommendations.append("⚠️ Le contenu présente des signes de désinformation")
         

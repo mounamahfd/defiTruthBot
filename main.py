@@ -1,12 +1,9 @@
-# TruthBot - Application principale
-
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Template
 from pathlib import Path
 import uvicorn
-from typing import Optional
 import os
 
 from app.services.text_analyzer import TextAnalyzer
@@ -20,11 +17,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configuration des fichiers statiques et templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 TEMPLATES_DIR = Path("templates")
 
-# Initialisation lazy des analyseurs (chargement en arrière-plan)
 text_analyzer = None
 url_analyzer = None
 image_analyzer = None
@@ -47,7 +42,6 @@ def get_image_analyzer():
         image_analyzer = ImageAnalyzer()
     return image_analyzer
 
-# Charger les analyseurs en arrière-plan au démarrage
 @app.on_event("startup")
 async def startup_event():
     import asyncio
@@ -81,7 +75,6 @@ async def startup_event():
         
         logger.info("Tous les analyseurs sont prêts!")
     
-    # Lancer le chargement dans un thread séparé pour ne pas bloquer
     loop = asyncio.get_event_loop()
     executor = ThreadPoolExecutor(max_workers=1)
     loop.run_in_executor(executor, load_analyzers_sync)
@@ -129,7 +122,6 @@ async def analyze_image(file: UploadFile = File(...)):
         if not file.content_type or not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="Le fichier doit être une image")
         
-        # Lire le contenu de l'image
         image_data = await file.read()
         analyzer = get_image_analyzer()
         result = analyzer.analyze(image_data)

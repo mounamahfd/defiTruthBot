@@ -1,5 +1,3 @@
-# Service d'analyse de texte
-
 from app.models.fake_news_detector import FakeNewsDetector
 from app.services.fact_checker import FactChecker
 from typing import Dict
@@ -26,49 +24,33 @@ class TextAnalyzer:
             Dictionnaire avec les résultats de l'analyse
         """
         try:
-            # Détection de fake news
             detection_result = self.detector.detect_fake_news(text)
-            
-            # Vérification contre faits connus (priorité)
             known_facts_check = self.fact_checker.check_against_known_facts(text)
-            
-            # Vérification de faits (fact-checking web)
             fact_check = self.fact_checker.verify_fact(text)
-            
-            # Analyse de sentiment (pour détecter les biais)
             sentiment = self._analyze_sentiment(text)
-            
-            # Métriques du texte
             metrics = self._calculate_metrics(text)
             
-            # Ajuster le score de détection avec la vérification de faits
-            # PRIORITÉ à la recherche web (fact_check), puis faits connus comme fallback
             if fact_check.get("verified") is False and fact_check.get("confidence", 0) > 0.5:
-                # Vérifié comme FAUX par recherche web
                 detection_result["confidence"] = min(1.0, detection_result["confidence"] + 0.3)
                 detection_result["is_fake"] = True
                 detection_result["verdict"] = "fake"
                 detection_result["reliability"] = (1.0 - detection_result["confidence"]) * 100
             elif fact_check.get("verified") is True and fact_check.get("confidence", 0) > 0.5:
-                # Vérifié comme VRAI par recherche web
                 detection_result["confidence"] = max(0.0, detection_result["confidence"] - 0.35)
                 detection_result["is_fake"] = False
                 detection_result["verdict"] = "probablement_vrai"
                 detection_result["reliability"] = (1.0 - detection_result["confidence"]) * 100
             elif known_facts_check.get("verified_as_true"):
-                # Fallback : fait connu vérifié (seulement si recherche web n'a pas donné de résultat)
                 detection_result["confidence"] = max(0.0, detection_result["confidence"] - 0.3)
                 detection_result["is_fake"] = False
                 detection_result["verdict"] = "probablement_vrai"
                 detection_result["reliability"] = (1.0 - detection_result["confidence"]) * 100
             elif known_facts_check.get("verified_as_false"):
-                # Fallback : fait connu comme faux
                 detection_result["confidence"] = min(1.0, detection_result["confidence"] + 0.25)
                 detection_result["is_fake"] = True
                 detection_result["verdict"] = "fake"
                 detection_result["reliability"] = (1.0 - detection_result["confidence"]) * 100
             
-            # Recalculer la fiabilité
             detection_result["reliability"] = (1.0 - detection_result["confidence"]) * 100
             
             return {
@@ -87,7 +69,6 @@ class TextAnalyzer:
             raise
     
     def _analyze_sentiment(self, text: str) -> Dict:
-        # Analyse simple basée sur des mots-clés
         text_lower = text.lower()
         
         positive_words = ['good', 'great', 'excellent', 'positive', 'success', 'happy']
@@ -133,14 +114,12 @@ class TextAnalyzer:
     def _generate_recommendation(self, detection: Dict, sentiment: Dict, fact_check: Dict = None, known_facts: Dict = None) -> str:
         recommendations = []
         
-        # PRIORITÉ à la recherche web (fact_check)
         if fact_check and fact_check.get("verified") is False:
             recommendations.append(f"🔴 Information vérifiée comme FAUSSE par recherche web (confiance: {fact_check.get('confidence', 0)*100:.0f}%).")
         elif fact_check and fact_check.get("verified") is True:
             recommendations.append(f"✅ Information vérifiée comme VRAIE par recherche web (confiance: {fact_check.get('confidence', 0)*100:.0f}%).")
         elif fact_check and fact_check.get("sources_found", 0) > 0:
             recommendations.append(f"ℹ️ {fact_check.get('sources_found', 0)} source(s) fiable(s) trouvée(s) mais verdict incertain.")
-        # Fallback : faits connus (seulement si recherche web n'a pas fonctionné)
         elif known_facts and known_facts.get("verified_as_true"):
             recommendations.append("✅ Information vérifiée comme VRAIE (base de faits - recherche web indisponible).")
         elif known_facts and known_facts.get("verified_as_false"):

@@ -1,5 +1,3 @@
-# Service de vérification de sécurité des URLs
-
 import requests
 import ssl
 import socket
@@ -41,19 +39,11 @@ class URLSecurityChecker:
             parsed = urlparse(url)
             domain = parsed.netloc.lower()
             
-            # 1. Vérification SSL/TLS
             ssl_check = self._check_ssl(domain, parsed.scheme == 'https')
-            
-            # 2. Vérification du domaine
             domain_check = self._check_domain(domain)
-            
-            # 3. Vérification de la réputation
             reputation_check = self._check_reputation(domain)
-            
-            # 4. Vérification de l'âge du domaine (si possible)
             age_check = self._check_domain_age(domain)
             
-            # Score global de sécurité
             security_score = self._calculate_security_score(
                 ssl_check, domain_check, reputation_check, age_check
             )
@@ -102,11 +92,9 @@ class URLSecurityChecker:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     cert = ssock.getpeercert()
                     
-                    # Vérifier la validité du certificat
                     not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
                     is_valid = datetime.now() < not_after
                     
-                    # Vérifier si le certificat correspond au domaine
                     subject = dict(x[0] for x in cert['subject'])
                     issuer = dict(x[0] for x in cert['issuer'])
                     
@@ -138,25 +126,21 @@ class URLSecurityChecker:
         is_trusted = False
         reasons = []
         
-        # Vérifier les domaines suspects
         for suspicious in self.suspicious_domains:
             if suspicious in domain:
                 is_suspicious = True
                 reasons.append(f"Domaine suspect détecté: {suspicious}")
         
-        # Vérifier les domaines de confiance
         for trusted in self.trusted_domains:
             if trusted in domain:
                 is_trusted = True
                 reasons.append(f"Domaine de confiance: {trusted}")
                 break
         
-        # Détecter le typosquatting (domaines similaires)
         if self._detect_typosquatting(domain):
             is_suspicious = True
             reasons.append("Possible typosquatting détecté")
         
-        # Vérifier la longueur du domaine (domaines très longs sont suspects)
         if len(domain) > 50:
             is_suspicious = True
             reasons.append("Domaine très long (suspect)")
@@ -168,10 +152,6 @@ class URLSecurityChecker:
         }
     
     def _detect_typosquatting(self, domain: str) -> bool:
-        """
-        Détecte le typosquatting (domaines similaires à des domaines connus)
-        """
-        # Exemples de typosquatting
         suspicious_patterns = [
             r'[a-z]{2,}[-_][a-z]{2,}',  # Domaines avec tirets multiples
             r'\d+[a-z]+\d+',  # Mélange de chiffres et lettres suspect
@@ -184,22 +164,16 @@ class URLSecurityChecker:
         return False
     
     def _check_reputation(self, domain: str) -> Dict:
-        """
-        Vérifie la réputation du domaine (basique)
-        """
-        # Vérifications basiques
         checks = {
             "has_ip": False,
             "is_accessible": False
         }
         
         try:
-            # Résolution DNS
             ip = socket.gethostbyname(domain)
             checks["has_ip"] = True
             checks["ip"] = ip
             
-            # Vérifier si le site est accessible
             try:
                 response = self.session.get(f"https://{domain}", timeout=5, allow_redirects=True)
                 checks["is_accessible"] = response.status_code == 200
@@ -212,11 +186,6 @@ class URLSecurityChecker:
         return checks
     
     def _check_domain_age(self, domain: str) -> Dict:
-        """
-        Vérifie l'âge du domaine (domaines récents sont plus suspects)
-        """
-        # Note: Pour une vraie vérification, utiliser whois ou une API
-        # Ici, on fait une vérification basique
         return {
             "age_verified": False,
             "note": "Vérification d'âge non disponible sans API whois"
@@ -224,12 +193,8 @@ class URLSecurityChecker:
     
     def _calculate_security_score(self, ssl_check: Dict, domain_check: Dict, 
                                   reputation_check: Dict, age_check: Dict) -> float:
-        """
-        Calcule un score de sécurité global (0.0 = très dangereux, 1.0 = très sûr)
-        """
-        score = 0.5  # Score de base
+        score = 0.5
         
-        # SSL (40% du score)
         if ssl_check.get("has_ssl") and ssl_check.get("valid"):
             score += 0.3
         elif ssl_check.get("has_ssl"):
@@ -237,25 +202,19 @@ class URLSecurityChecker:
         else:
             score -= 0.2
         
-        # Domaine (30% du score)
         if domain_check.get("is_trusted"):
             score += 0.2
         elif domain_check.get("is_suspicious"):
             score -= 0.3
         
-        # Réputation (20% du score)
         if reputation_check.get("is_accessible"):
             score += 0.1
         
-        # Limiter entre 0 et 1
         return max(0.0, min(1.0, score))
     
     def _generate_security_recommendation(self, is_secure: bool, is_fraudulent: bool,
                                          security_score: float, ssl_check: Dict, 
                                          domain_check: Dict) -> str:
-        """
-        Génère une recommandation basée sur les vérifications
-        """
         if is_fraudulent:
             return "🔴 Site potentiellement frauduleux ou non sécurisé. Ne partagez pas d'informations personnelles."
         elif not ssl_check.get("has_ssl"):

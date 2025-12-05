@@ -1,5 +1,3 @@
-# Service d'analyse d'image avec OCR et détection de deepfake
-
 try:
     from PIL import Image
     PIL_AVAILABLE = True
@@ -19,7 +17,6 @@ except ImportError:
     NUMPY_AVAILABLE = False
     np = None
 
-# OCR - Tesseract
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
@@ -27,7 +24,6 @@ except ImportError:
     TESSERACT_AVAILABLE = False
     pytesseract = None
 
-# OCR - EasyOCR (alternative)
 try:
     import easyocr
     EASYOCR_AVAILABLE = True
@@ -35,7 +31,6 @@ except ImportError:
     EASYOCR_AVAILABLE = False
     easyocr = None
 
-# Détection de deepfake
 try:
     import cv2
     CV2_AVAILABLE = True
@@ -49,7 +44,6 @@ logger = logging.getLogger(__name__)
 
 class ImageAnalyzer:
     def __init__(self):
-        # Configurer le chemin Tesseract pour Docker
         if TESSERACT_AVAILABLE:
             import os
             tesseract_cmd = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
@@ -60,8 +54,6 @@ class ImageAnalyzer:
                 logger.warning(f"Tesseract non trouvé à {tesseract_cmd}")
         
         self.easyocr_reader = None
-        # Désactiver EasyOCR au démarrage pour éviter de bloquer le serveur
-        # Il sera chargé à la demande lors de l'analyse d'image si nécessaire
         if EASYOCR_AVAILABLE:
             logger.info("EasyOCR disponible mais non initialisé au démarrage (chargement à la demande)")
         else:
@@ -85,20 +77,12 @@ class ImageAnalyzer:
             }
         
         try:
-            # Chargement de l'image
             image = Image.open(io.BytesIO(image_data))
-            
-            # Analyse de base
             image_info = self._analyze_image_properties(image)
-            
-            # Détection de manipulations et deepfakes
             manipulation_signs = self._detect_manipulation_signs(image)
             deepfake_analysis = self._detect_deepfake(image)
-            
-            # Extraction de texte avec OCR
             text_extracted = self._extract_text_ocr(image)
             
-            # Analyse du texte extrait si présent
             text_analysis = None
             if text_extracted and len(text_extracted.strip()) > 10:
                 from app.services.text_analyzer import TextAnalyzer
@@ -145,10 +129,7 @@ class ImageAnalyzer:
                 "confidence": 0.3
             }
         
-        # Conversion en array numpy pour l'analyse
         img_array = np.array(image.convert('RGB'))
-        
-        # Analyse de base
         signs = {
             "suspicious_areas": 0,
             "compression_artifacts": False,
@@ -156,9 +137,7 @@ class ImageAnalyzer:
             "confidence": 0.3
         }
         
-        # Détection simple de zones suspectes (variations importantes)
         if len(img_array.shape) == 3:
-            # Calcul de la variance pour détecter des zones suspectes
             variance = np.var(img_array, axis=2)
             high_variance_areas = np.sum(variance > np.percentile(variance, 95))
             
@@ -181,11 +160,9 @@ class ImageAnalyzer:
             return result
         
         try:
-            # Conversion PIL -> numpy -> OpenCV
             img_array = np.array(image.convert('RGB'))
             img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
             
-            # Détection de visages (pour les deepfakes de visages)
             face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
             gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, 1.1, 4)
@@ -193,34 +170,23 @@ class ImageAnalyzer:
             if len(faces) > 0:
                 result["details"].append(f"{len(faces)} visage(s) détecté(s)")
                 
-                # Analyse des visages pour détecter des incohérences
                 for (x, y, w, h) in faces:
                     face_roi = img_cv[y:y+h, x:x+w]
-                    
-                    # Détection de flou ou d'artefacts dans la zone du visage
                     face_gray = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
                     laplacian_var = cv2.Laplacian(face_gray, cv2.CV_64F).var()
                     
-                    # Un deepfake peut avoir des zones floues ou des artefacts
-                    if laplacian_var < 100:  # Seuil de flou
+                    if laplacian_var < 100:
                         result["deepfake_detected"] = True
                         result["confidence"] = 0.6
                         result["details"].append("Flou suspect détecté dans la zone du visage")
                     
-                    # Détection d'incohérences de couleur
                     if len(face_roi.shape) == 3:
                         color_variance = np.var(face_roi, axis=2)
-                        if np.mean(color_variance) > 500:  # Variance élevée = possible manipulation
+                        if np.mean(color_variance) > 500:
                             result["confidence"] = min(result["confidence"] + 0.2, 0.9)
                             result["details"].append("Incohérences de couleur détectées")
             else:
                 result["details"].append("Aucun visage détecté - analyse générale")
-            
-            # Note: Pour une vraie détection de deepfake, utiliser des modèles spécialisés comme:
-            # - FaceForensics++
-            # - XceptionNet
-            # - MesoNet
-            # - Capsule Networks
             
         except Exception as e:
             logger.warning(f"Erreur lors de la détection de deepfake: {e}")
@@ -231,7 +197,6 @@ class ImageAnalyzer:
     def _extract_text_ocr(self, image: Image.Image) -> str:
         text = ""
         
-        # Essayer d'abord EasyOCR (chargement à la demande)
         if EASYOCR_AVAILABLE:
             if self.easyocr_reader is None:
                 try:
@@ -253,7 +218,6 @@ class ImageAnalyzer:
                 except Exception as e:
                     logger.warning(f"Erreur avec EasyOCR: {e}")
         
-        # Essayer Tesseract en fallback
         if TESSERACT_AVAILABLE:
             try:
                 logger.info("Extraction de texte avec Tesseract...")
@@ -264,7 +228,6 @@ class ImageAnalyzer:
             except Exception as e:
                 logger.warning(f"Erreur avec Tesseract: {e}")
         
-        # Si aucun OCR n'est disponible
         if not text:
             if not TESSERACT_AVAILABLE and not EASYOCR_AVAILABLE:
                 return "⚠️ OCR non disponible. Installez Tesseract ou EasyOCR:\n" \

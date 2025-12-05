@@ -1,5 +1,3 @@
-# Service de vérification de faits (fact-checking)
-
 import requests
 import logging
 from typing import Dict, List, Optional
@@ -30,12 +28,9 @@ class FactChecker:
                 "method": "insufficient_text"
             }
         
-        # Recherche web directe sur le texte complet
         search_result = self._search_web(text)
         
-        # Analyse des résultats de recherche
         if search_result.get("sources_found", 0) > 0:
-            # Analyser les résultats pour déterminer si l'info est vraie ou fausse
             analysis = self._analyze_search_results(text, search_result)
             return {
                 "verified": analysis.get("verified"),
@@ -46,11 +41,10 @@ class FactChecker:
                 "results_count": search_result.get("results_count", 0)
             }
         
-        # Fallback : extraction de faits et vérification individuelle
         facts = self._extract_facts(text)
         if facts:
             verification_results = []
-            for fact in facts[:3]:  # Limiter à 3 faits pour éviter trop de requêtes
+            for fact in facts[:3]:
                 result = self._check_fact(fact, text)
                 verification_results.append(result)
             
@@ -90,7 +84,6 @@ class FactChecker:
         facts = []
         text_lower = text.lower()
         
-        # Patterns pour extraire des affirmations factuelles
         patterns = [
             r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(est|is|a été|has been)\s+(le|la|un|une|président|president|premier ministre)',
             r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(est mort|is dead|décédé|passed away)',
@@ -105,17 +98,15 @@ class FactChecker:
                 if len(fact) > 10 and len(fact) < 200:
                     facts.append(fact)
         
-        # Si aucun pattern ne correspond, prendre les phrases principales
         if not facts:
             sentences = re.split(r'[.!?]+', text)
             for sentence in sentences:
                 sentence = sentence.strip()
-                # Phrases courtes avec noms propres ou chiffres
                 if (len(sentence) > 15 and len(sentence) < 150 and 
                     (re.search(r'[A-Z][a-z]+', sentence) or re.search(r'\d+', sentence))):
                     facts.append(sentence)
         
-        return facts[:5]  # Limiter à 5 faits
+        return facts[:5]
     
     def _search_web(self, text: str) -> Dict:
         """
@@ -125,7 +116,6 @@ class FactChecker:
         all_results = []
         all_sources = []
         
-        # Plusieurs requêtes de recherche pour améliorer les résultats
         search_queries = [
             f'"{text}"',
             f'{text} vérification',
@@ -133,7 +123,7 @@ class FactChecker:
             f'{text} vrai ou faux'
         ]
         
-        for query in search_queries[:2]:  # Limiter à 2 requêtes pour éviter trop de requêtes
+        for query in search_queries[:2]:
             try:
                 search_url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
                 response = self.session.get(search_url, timeout=8)
@@ -141,14 +131,12 @@ class FactChecker:
                 if response.status_code == 200:
                     soup = BeautifulSoup(response.content, 'html.parser')
                     
-                    # Extraire les résultats (plusieurs sélecteurs possibles)
                     for result in soup.find_all('a', class_='result__a', limit=10):
                         title = result.get_text(strip=True)
                         href = result.get('href', '')
                         if title and href and title not in [r['title'] for r in all_results]:
                             all_results.append({"title": title, "url": href})
                     
-                    # Aussi chercher dans d'autres formats de résultats
                     for link in soup.find_all('a', href=True):
                         title = link.get_text(strip=True)
                         href = link.get('href', '')
@@ -159,7 +147,6 @@ class FactChecker:
             except Exception as e:
                 logger.warning(f"Erreur recherche web pour '{query}': {e}")
         
-        # Analyser les titres et URLs pour trouver des sources fiables
         source_keywords = [
             'snopes', 'factcheck', 'lemonde', 'franceinfo', 'france 24',
             'bbc', 'reuters', 'ap news', 'the guardian', 'wikipedia',
@@ -177,7 +164,7 @@ class FactChecker:
         
         return {
             "query": text,
-            "results": all_results[:15],  # Limiter à 15 résultats
+            "results": all_results[:15],
             "sources": all_sources,
             "results_count": len(all_results),
             "sources_found": len(all_sources)
@@ -191,13 +178,11 @@ class FactChecker:
         results = search_result.get("results", [])
         sources = search_result.get("sources", [])
         
-        # Mots-clés indiquant que l'info est VRAIE
         true_keywords = [
             'vrai', 'true', 'correct', 'confirmé', 'confirmed', 'vérifié', 'verified',
             'officiel', 'official', 'source fiable'
         ]
         
-        # Mots-clés indiquant que l'info est FAUSSE
         false_keywords = [
             'faux', 'false', 'fake', 'hoax', 'canular', 'rumeur', 'rumor',
             'démenti', 'debunked', 'démythifié', 'non vérifié'
@@ -207,12 +192,10 @@ class FactChecker:
         false_count = 0
         neutral_count = 0
         
-        # Analyser les titres des résultats
         for result in results:
             title_lower = result.get('title', '').lower()
             url_lower = result.get('url', '').lower()
             
-            # Vérifier si le titre contient des mots-clés
             has_true = any(kw in title_lower for kw in true_keywords)
             has_false = any(kw in title_lower for kw in false_keywords)
             
@@ -223,7 +206,6 @@ class FactChecker:
             else:
                 neutral_count += 1
         
-        # Si on a des sources fiables, leur donner plus de poids
         if sources:
             for source in sources:
                 title_lower = source.get('title', '').lower()
@@ -231,11 +213,10 @@ class FactChecker:
                 has_true = any(kw in title_lower for kw in true_keywords)
                 
                 if has_false:
-                    false_count += 2  # Plus de poids pour les sources fiables
+                    false_count += 2
                 elif has_true:
                     true_count += 2
         
-        # Déterminer le verdict
         total_signals = true_count + false_count
         if total_signals == 0:
             verified = None
@@ -247,7 +228,7 @@ class FactChecker:
             verified = True
             confidence = min(0.9, 0.5 + (true_count / max(total_signals, 1)) * 0.4)
         else:
-            verified = None  # Conflit ou pas assez d'info
+            verified = None
             confidence = 0.4
         
         return {
@@ -286,19 +267,13 @@ class FactChecker:
         """
         text_lower = text.lower()
         
-        # Base de faits connus (exemples)
         known_facts = {
-            # Présidents actuels
             "emmanuel macron": {"is_president": True, "country": "France", "since": 2017, "verified": True},
             "joe biden": {"is_president": True, "country": "USA", "since": 2021, "verified": True},
-            
-            # Personnalités et nationalités
             "messi": {"nationality": "argentin", "verified": True},
             "messi est argentin": {"verified": True, "correct": True},
             "messi est argentinien": {"verified": True, "correct": True},
             "messi est français": {"verified": False, "correct": False},
-            
-            # Fausses nouvelles connues
             "presidante": {"is_correct": False, "correct": "présidente", "verified": False},
         }
         
@@ -306,10 +281,8 @@ class FactChecker:
         verified_as_true = False
         verified_as_false = False
         
-        # Vérifier les correspondances exactes et partielles
         for key, fact_data in known_facts.items():
             key_lower = key.lower()
-            # Correspondance exacte ou partielle (le fait peut être dans le texte)
             if key_lower in text_lower or text_lower in key_lower:
                 matches.append({
                     "fact": key,
@@ -321,7 +294,6 @@ class FactChecker:
                 elif fact_data.get("verified") is False or fact_data.get("correct") is False:
                     verified_as_false = True
         
-        # Vérification spéciale pour "Messi est argentin/argentinien"
         if "messi" in text_lower and ("argentin" in text_lower or "argentine" in text_lower):
             verified_as_true = True
             matches.append({
