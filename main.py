@@ -24,10 +24,67 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 TEMPLATES_DIR = Path("templates")
 
-# Initialisation des analyseurs
-text_analyzer = TextAnalyzer()
-url_analyzer = URLAnalyzer()
-image_analyzer = ImageAnalyzer()
+# Initialisation lazy des analyseurs (chargement en arrière-plan)
+text_analyzer = None
+url_analyzer = None
+image_analyzer = None
+
+def get_text_analyzer():
+    global text_analyzer
+    if text_analyzer is None:
+        text_analyzer = TextAnalyzer()
+    return text_analyzer
+
+def get_url_analyzer():
+    global url_analyzer
+    if url_analyzer is None:
+        url_analyzer = URLAnalyzer()
+    return url_analyzer
+
+def get_image_analyzer():
+    global image_analyzer
+    if image_analyzer is None:
+        image_analyzer = ImageAnalyzer()
+    return image_analyzer
+
+# Charger les analyseurs en arrière-plan au démarrage
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    import logging
+    from concurrent.futures import ThreadPoolExecutor
+    
+    logger = logging.getLogger(__name__)
+    logger.info("Démarrage du serveur - chargement des modèles en arrière-plan...")
+    
+    def load_analyzers_sync():
+        try:
+            logger.info("Chargement de TextAnalyzer...")
+            get_text_analyzer()
+            logger.info("TextAnalyzer chargé")
+        except Exception as e:
+            logger.error(f"Erreur chargement TextAnalyzer: {e}")
+        
+        try:
+            logger.info("Chargement de URLAnalyzer...")
+            get_url_analyzer()
+            logger.info("URLAnalyzer chargé")
+        except Exception as e:
+            logger.error(f"Erreur chargement URLAnalyzer: {e}")
+        
+        try:
+            logger.info("Chargement de ImageAnalyzer...")
+            get_image_analyzer()
+            logger.info("ImageAnalyzer chargé")
+        except Exception as e:
+            logger.error(f"Erreur chargement ImageAnalyzer: {e}")
+        
+        logger.info("Tous les analyseurs sont prêts!")
+    
+    # Lancer le chargement dans un thread séparé pour ne pas bloquer
+    loop = asyncio.get_event_loop()
+    executor = ThreadPoolExecutor(max_workers=1)
+    loop.run_in_executor(executor, load_analyzers_sync)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -44,7 +101,8 @@ async def analyze_text(text: str = Form(...)):
         if not text or len(text.strip()) < 10:
             raise HTTPException(status_code=400, detail="Le texte doit contenir au moins 10 caractères")
         
-        result = text_analyzer.analyze(text)
+        analyzer = get_text_analyzer()
+        result = analyzer.analyze(text)
         return format_response(result, "text")
     
     except Exception as e:
@@ -57,7 +115,8 @@ async def analyze_url(url: str = Form(...)):
         if not url or not url.startswith(('http://', 'https://')):
             raise HTTPException(status_code=400, detail="URL invalide")
         
-        result = url_analyzer.analyze(url)
+        analyzer = get_url_analyzer()
+        result = analyzer.analyze(url)
         return format_response(result, "url")
     
     except Exception as e:
@@ -72,7 +131,8 @@ async def analyze_image(file: UploadFile = File(...)):
         
         # Lire le contenu de l'image
         image_data = await file.read()
-        result = image_analyzer.analyze(image_data)
+        analyzer = get_image_analyzer()
+        result = analyzer.analyze(image_data)
         return format_response(result, "image")
     
     except Exception as e:
