@@ -24,12 +24,8 @@ except ImportError:
     TESSERACT_AVAILABLE = False
     pytesseract = None
 
-try:
-    import easyocr
-    EASYOCR_AVAILABLE = True
-except ImportError:
-    EASYOCR_AVAILABLE = False
-    easyocr = None
+EASYOCR_AVAILABLE = None
+easyocr = None
 
 try:
     import cv2
@@ -54,10 +50,7 @@ class ImageAnalyzer:
                 logger.warning(f"Tesseract non trouvé à {tesseract_cmd}")
         
         self.easyocr_reader = None
-        if EASYOCR_AVAILABLE:
-            logger.info("EasyOCR disponible mais non initialisé au démarrage (chargement à la demande)")
-        else:
-            logger.info("EasyOCR non disponible - utilisation de Tesseract uniquement")
+        self._easyocr_available = None
     
     def analyze(self, image_data: bytes) -> Dict:
         """
@@ -194,19 +187,31 @@ class ImageAnalyzer:
         
         return result
     
+    def _check_easyocr_available(self):
+        if self._easyocr_available is None:
+            try:
+                import easyocr
+                self._easyocr_available = True
+                logger.info("EasyOCR disponible")
+            except (ImportError, AttributeError) as e:
+                self._easyocr_available = False
+                logger.info(f"EasyOCR non disponible: {e}")
+        return self._easyocr_available
+    
     def _extract_text_ocr(self, image: Image.Image) -> str:
         text = ""
         
-        if EASYOCR_AVAILABLE:
+        if self._check_easyocr_available():
             if self.easyocr_reader is None:
                 try:
+                    import easyocr
                     logger.info("Chargement EasyOCR à la demande...")
                     self.easyocr_reader = easyocr.Reader(['fr', 'en'], gpu=False, verbose=False)
                     logger.info("EasyOCR chargé avec succès")
                 except Exception as e:
                     logger.warning(f"Erreur chargement EasyOCR: {e}")
-                    self.easyocr_reader = False  # Marquer comme échoué pour éviter de réessayer
-        
+                    self.easyocr_reader = False
+            
             if self.easyocr_reader and self.easyocr_reader is not False:
                 try:
                     logger.info("Extraction de texte avec EasyOCR...")
@@ -229,7 +234,7 @@ class ImageAnalyzer:
                 logger.warning(f"Erreur avec Tesseract: {e}")
         
         if not text:
-            if not TESSERACT_AVAILABLE and not EASYOCR_AVAILABLE:
+            if not TESSERACT_AVAILABLE and not (self._easyocr_available if self._easyocr_available is not None else False):
                 return "⚠️ OCR non disponible. Installez Tesseract ou EasyOCR:\n" \
                        "- Tesseract: pip install pytesseract (nécessite aussi Tesseract installé)\n" \
                        "- EasyOCR: pip install easyocr"

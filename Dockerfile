@@ -29,7 +29,7 @@ RUN pip install --timeout=600 \
     beautifulsoup4 aiohttp python-jose[cryptography] \
     python-dotenv jinja2 pytesseract opencv-python-headless
 
-RUN pip install --timeout=600 torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --timeout=600 torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 RUN pip install --timeout=600 transformers
 

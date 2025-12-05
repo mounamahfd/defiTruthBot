@@ -13,4 +13,5 @@ pytesseract
 opencv-python-headless
 transformers
 torch
+torchvision
 easyocr

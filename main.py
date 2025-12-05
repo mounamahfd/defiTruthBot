@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from jinja2 import Template
 from pathlib import Path
 import uvicorn
@@ -11,39 +12,9 @@ from app.services.url_analyzer import URLAnalyzer
 from app.services.image_analyzer import ImageAnalyzer
 from app.utils.response_formatter import format_response
 
-app = FastAPI(
-    title="TruthBot",
-    description="Détection de désinformation par IA - Défi AI4GOOD",
-    version="1.0.0"
-)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-TEMPLATES_DIR = Path("templates")
-
-text_analyzer = None
-url_analyzer = None
-image_analyzer = None
-
-def get_text_analyzer():
-    global text_analyzer
-    if text_analyzer is None:
-        text_analyzer = TextAnalyzer()
-    return text_analyzer
-
-def get_url_analyzer():
-    global url_analyzer
-    if url_analyzer is None:
-        url_analyzer = URLAnalyzer()
-    return url_analyzer
-
-def get_image_analyzer():
-    global image_analyzer
-    if image_analyzer is None:
-        image_analyzer = ImageAnalyzer()
-    return image_analyzer
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     import asyncio
     import logging
     from concurrent.futures import ThreadPoolExecutor
@@ -78,6 +49,44 @@ async def startup_event():
     loop = asyncio.get_event_loop()
     executor = ThreadPoolExecutor(max_workers=1)
     loop.run_in_executor(executor, load_analyzers_sync)
+    
+    yield
+    
+    logger.info("Arrêt du serveur")
+
+
+app = FastAPI(
+    title="TruthBot",
+    description="Détection de désinformation par IA - Défi AI4GOOD",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+TEMPLATES_DIR = Path("templates")
+
+text_analyzer = None
+url_analyzer = None
+image_analyzer = None
+
+def get_text_analyzer():
+    global text_analyzer
+    if text_analyzer is None:
+        text_analyzer = TextAnalyzer()
+    return text_analyzer
+
+def get_url_analyzer():
+    global url_analyzer
+    if url_analyzer is None:
+        url_analyzer = URLAnalyzer()
+    return url_analyzer
+
+def get_image_analyzer():
+    global image_analyzer
+    if image_analyzer is None:
+        image_analyzer = ImageAnalyzer()
+    return image_analyzer
+
 
 
 @app.get("/", response_class=HTMLResponse)
