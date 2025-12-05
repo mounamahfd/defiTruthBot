@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+*.log
+.vscode
+.DS_Store
+.env
+.git
+*.md
+.dockerignore
+Dockerfile
+docker-compose.yml
+

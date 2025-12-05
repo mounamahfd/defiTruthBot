@@ -1,0 +1,13 @@
+services:
+  truthbot:
+    build: .
+    container_name: truthbot
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TESSERACT_CMD=/usr/bin/tesseract
+    restart: unless-stopped
+

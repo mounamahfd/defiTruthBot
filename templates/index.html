@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruthBot - Détection de Désinformation par IA</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">🤖</span>
+                    TruthBot
+                </h1>
+                <p class="subtitle">Détection de désinformation par Intelligence Artificielle</p>
+                <p class="tagline">Développé pour le défi AI4GOOD - Nuit de l'Info</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-button active" data-tab="text">
+                    <span class="tab-icon">📝</span>
+                    Texte
+                </button>
+                <button class="tab-button" data-tab="url">
+                    <span class="tab-icon">🔗</span>
+                    URL
+                </button>
+                <button class="tab-button" data-tab="image">
+                    <span class="tab-icon">🖼️</span>
+                    Image
+                </button>
+            </div>
+
+            <!-- Text Analysis Tab -->
+            <div class="tab-content active" id="text-tab">
+                <div class="input-section">
+                    <h2>Analysez un texte</h2>
+                    <p class="section-description">Collez ou tapez le texte que vous souhaitez vérifier</p>
+                    <textarea 
+                        id="text-input" 
+                        class="text-input" 
+                        placeholder="Entrez le texte à analyser ici... (minimum 10 caractères)"
+                        rows="8"
+                    ></textarea>
+                    <button class="analyze-button" onclick="analyzeText()">
+                        <span class="button-icon">🔍</span>
+                        Analyser le texte
+                    </button>
+                </div>
+            </div>
+
+            <!-- URL Analysis Tab -->
+            <div class="tab-content" id="url-tab">
+                <div class="input-section">
+                    <h2>Analysez une URL</h2>
+                    <p class="section-description">Entrez l'URL d'un article ou d'une page web à vérifier</p>
+                    <input 
+                        type="url" 
+                        id="url-input" 
+                        class="url-input" 
+                        placeholder="https://exemple.com/article"
+                    />
+                    <button class="analyze-button" onclick="analyzeURL()">
+                        <span class="button-icon">🔍</span>
+                        Analyser l'URL
+                    </button>
+                </div>
+            </div>
+
+            <!-- Image Analysis Tab -->
+            <div class="tab-content" id="image-tab">
+                <div class="input-section">
+                    <h2>Analysez une image</h2>
+                    <p class="section-description">Téléchargez une image pour détecter les manipulations et extraire le texte</p>
+                    <div class="file-upload-area" id="image-upload-area">
+                        <input type="file" id="image-input" accept="image/*" onchange="handleImageSelect(event)" />
+                        <div class="upload-placeholder">
+                            <span class="upload-icon">📤</span>
+                            <p>Cliquez pour sélectionner une image</p>
+                            <p class="upload-hint">Formats supportés: JPG, PNG, GIF</p>
+                        </div>
+                        <div class="image-preview" id="image-preview" style="display: none;">
+                            <img id="preview-img" src="" alt="Preview" />
+                            <button class="remove-image" onclick="removeImage()">✕</button>
+                        </div>
+                    </div>
+                    <button class="analyze-button" id="analyze-image-btn" onclick="analyzeImage()" disabled>
+                        <span class="button-icon">🔍</span>
+                        Analyser l'image
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="results-section" style="display: none;">
+                <h2>Résultats de l'analyse</h2>
+                <div id="results-content"></div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Analyse en cours...</p>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>TruthBot - Défi AI4GOOD | Nuit de l'Info</p>
+                <p class="footer-note">Cette application utilise l'IA pour sensibiliser à l'esprit critique numérique. 
+                Elle ne remplace pas votre jugement et ne censure aucun contenu.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+
