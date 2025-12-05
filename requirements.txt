@@ -4,8 +4,6 @@ python-multipart
 pillow
 requests
 numpy
-pandas
-scikit-learn
 beautifulsoup4
 aiohttp
 python-jose[cryptography]

@@ -181,4 +181,4 @@ app/
 
 ## Auteur
 
-Développé pour le défi AI4GOOD - Nuit de l'Infooo
+Développé pour le défi AI4GOOD - Nuit de l'Info
